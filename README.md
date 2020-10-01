@@ -4,9 +4,9 @@ Add items to your main todo list or your work todo list.
 
 Hosted example:
 
-Main list:
+Main list: https://polar-eyrie-33275.herokuapp.com/
 
-Work list:
+Work list: https://polar-eyrie-33275.herokuapp.com/work
 
 ### Install
 
