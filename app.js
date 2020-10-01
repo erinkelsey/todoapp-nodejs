@@ -3,22 +3,27 @@ const bodyParser = require("body-parser");
 
 const app = express();
 
+let items = [];
+
 app.set("view engine", "ejs");
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 app.get("/", (req, res) => {
-  // res.send("hello!");
   const today = new Date();
-  const currentDay = today.getDay();
-  const daysOfWeek = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  res.render("list", { kindOfDay: daysOfWeek[currentDay] });
+  const options = {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  };
+
+  const currentDateString = today.toLocaleDateString("en-US", options);
+  res.render("list", { currentDay: currentDateString, listItems: items });
+});
+
+app.post("/", (req, res) => {
+  items.push(req.body.newItem);
+  res.redirect("/");
 });
 
 app.listen(3000, () => {
