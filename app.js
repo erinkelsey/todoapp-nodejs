@@ -4,6 +4,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+const _ = require("lodash");
 const date = require(__dirname + "/date.js");
 
 const app = express();
@@ -13,37 +14,49 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 /**
- * MongoDB and mongoose setup, including schema and model
+ * MongoDB and mongoose setup, including schema and models
+ * for Item and List
  */
 mongoose.connect("mongodb://localhost:27017/todolistDB", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-const Item = mongoose.model(
-  "Item",
+const itemsSchema = new mongoose.Schema({
+  name: String,
+});
+
+const Item = mongoose.model("Item", itemsSchema);
+
+const List = mongoose.model(
+  "List",
   new mongoose.Schema({
     name: String,
+    items: [itemsSchema],
   })
 );
+
+/**
+ * Default Items for any list
+ */
+const item1 = new Item({
+  name: "Welcome to your todolist!",
+});
+
+const item2 = new Item({
+  name: "Hit the + button to add a new item.",
+});
+
+const item3 = new Item({
+  name: "<-- Hit this to delete an item.",
+});
+
+const defaultItems = [item1, item2, item3];
 
 /**
  *  Add default items to the todo database
  */
 const addDefaultItems = () => {
-  const item1 = new Item({
-    name: "Welcome to your todolist!",
-  });
-
-  const item2 = new Item({
-    name: "Hit the + button to add a new item.",
-  });
-
-  const item3 = new Item({
-    name: "<-- Hit this to delete an item.",
-  });
-
-  const defaultItems = [item1, item2, item3];
   Item.insertMany(defaultItems, (err) => {
     if (err) console.log(err);
     else console.log("successfully saved default items to db");
@@ -72,6 +85,34 @@ app.get("/", (req, res) => {
 });
 
 /**
+ * GET method for a custom list
+ *
+ * Finds the list, and returns the items and the list title
+ * to be rendered in list.ejs
+ */
+app.get("/:customListName", (req, res) => {
+  const customListName = _.capitalize(req.params.customListName);
+
+  List.findOne({ name: customListName }, (err, foundList) => {
+    if (!err) {
+      if (!foundList) {
+        const list = new List({
+          name: customListName,
+          items: defaultItems,
+        });
+        list.save();
+        res.redirect("/" + customListName);
+      } else {
+        res.render("list", {
+          listTitle: customListName,
+          listItems: foundList.items,
+        });
+      }
+    }
+  });
+});
+
+/**
  * POST method for main route.
  *
  * Called when user submits a new todo list item, either on the main list or
@@ -80,37 +121,48 @@ app.get("/", (req, res) => {
  */
 app.post("/", (req, res) => {
   const item = new Item({ name: req.body.newItem });
-  item.save();
-  res.redirect("/");
-  // if (req.body.list === "Work List") {
-  //   workItems.push(req.body.newItem);
-  //   res.redirect("/work");
-  // } else {
-  //   items.push(req.body.newItem);
-  //   res.redirect("/");
-  // }
+  const listName = _.capitalize(req.body.list);
+
+  List.findOne({ name: listName }, (err, foundList) => {
+    if (!foundList) {
+      item.save();
+      res.redirect("/");
+    } else {
+      foundList.items.push(item);
+      foundList.save();
+      res.redirect("/" + listName);
+    }
+  });
 });
 
 /**
- * POST method
+ * POST method to delete an item.
+ *
+ * Called when user checks the checkbox beside the item.
+ * Item ID is used to find and remove item, either from main
+ * list or custom list. Redirected back to correct list.
  */
 app.post("/delete", (req, res) => {
-  console.log(req.body.checkbox);
-  Item.findByIdAndRemove(req.body.checkbox, (err) => {
-    if (!err) console.log("successfully deleted checked item");
-    else console.log(err);
-  });
-
-  res.redirect("/");
-});
-
-/**
- * GET Method for /work route.
- *
- * Sends back the list.ejs with context to render the work todo list.
- */
-app.get("/work", (req, res) => {
-  res.render("list", { listTitle: "Work List", listItems: workItems });
+  const listName = req.body.listName;
+  const checkedItemId = req.body.checkbox;
+  List.findOneAndUpdate(
+    { name: listName },
+    { $pull: { items: { _id: checkedItemId } } },
+    (err, foundList) => {
+      if (err) {
+        console.log(err);
+      } else if (!foundList) {
+        Item.findByIdAndRemove(checkedItemId, (err) => {
+          if (!err) console.log("successfully deleted checked item");
+          else console.log(err);
+          res.redirect("/");
+        });
+      } else {
+        console.log("successfully deleted item from custom list");
+        res.redirect("/" + listName);
+      }
+    }
+  );
 });
 
 /**
