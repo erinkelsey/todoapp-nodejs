@@ -1,6 +1,6 @@
 # Todo List App
 
-Add items to your main todo list or your work todo list.
+Add items to your main todo list or your work todo list. Implemented with Node.js, Express, EJS, and MongoDB.
 
 Hosted example:
 
