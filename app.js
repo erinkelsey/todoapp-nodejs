@@ -17,16 +17,18 @@ app.use(express.static("public"));
  */
 mongoose.connect("mongodb://localhost:27017/todolistDB", {
   useNewUrlParser: true,
+  useUnifiedTopology: true,
 });
 
-const itemsSchema = new mongoose.Schema({
-  name: String,
-});
-
-const Item = mongoose.model("Item", itemsSchema);
+const Item = mongoose.model(
+  "Item",
+  new mongoose.Schema({
+    name: String,
+  })
+);
 
 /**
- *  Add default items to the
+ *  Add default items to the todo database
  */
 const addDefaultItems = () => {
   const item1 = new Item({
@@ -60,12 +62,12 @@ app.get("/", (req, res) => {
     if (foundItems.length === 0) {
       addDefaultItems();
       res.redirect("/");
+    } else {
+      res.render("list", {
+        listTitle: date.getCurrentDate(),
+        listItems: foundItems,
+      });
     }
-
-    res.render("list", {
-      listTitle: date.getCurrentDate(),
-      listItems: foundItems,
-    });
   });
 });
 
@@ -77,13 +79,29 @@ app.get("/", (req, res) => {
  * to the correct list.
  */
 app.post("/", (req, res) => {
-  if (req.body.list === "Work List") {
-    workItems.push(req.body.newItem);
-    res.redirect("/work");
-  } else {
-    items.push(req.body.newItem);
-    res.redirect("/");
-  }
+  const item = new Item({ name: req.body.newItem });
+  item.save();
+  res.redirect("/");
+  // if (req.body.list === "Work List") {
+  //   workItems.push(req.body.newItem);
+  //   res.redirect("/work");
+  // } else {
+  //   items.push(req.body.newItem);
+  //   res.redirect("/");
+  // }
+});
+
+/**
+ * POST method
+ */
+app.post("/delete", (req, res) => {
+  console.log(req.body.checkbox);
+  Item.findByIdAndRemove(req.body.checkbox, (err) => {
+    if (!err) console.log("successfully deleted checked item");
+    else console.log(err);
+  });
+
+  res.redirect("/");
 });
 
 /**
