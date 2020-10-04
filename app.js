@@ -1,6 +1,8 @@
 /**
  * Setup and initialization.
  */
+require("dotenv").config();
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
@@ -17,7 +19,7 @@ app.use(express.static("public"));
  * MongoDB and mongoose setup, including schema and models
  * for Item and List
  */
-mongoose.connect("mongodb://localhost:27017/todolistDB", {
+mongoose.connect(process.env.MONGODB_SRV_ADDRESS, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -54,16 +56,6 @@ const item3 = new Item({
 const defaultItems = [item1, item2, item3];
 
 /**
- *  Add default items to the todo database
- */
-const addDefaultItems = () => {
-  Item.insertMany(defaultItems, (err) => {
-    if (err) console.log(err);
-    else console.log("successfully saved default items to db");
-  });
-};
-
-/**
  * GET Method for main route.
  *
  * Sends back the list.ejs with context to render the main todo list.
@@ -73,8 +65,11 @@ const addDefaultItems = () => {
 app.get("/", (req, res) => {
   Item.find({}, (err, foundItems) => {
     if (foundItems.length === 0) {
-      addDefaultItems();
-      res.redirect("/");
+      Item.insertMany(defaultItems, (err) => {
+        if (err) console.log(err);
+        else console.log("successfully saved default items to db");
+        res.redirect("/");
+      });
     } else {
       res.render("list", {
         listTitle: date.getCurrentDate(),
@@ -124,7 +119,8 @@ app.post("/", (req, res) => {
   const listName = _.capitalize(req.body.list);
 
   List.findOne({ name: listName }, (err, foundList) => {
-    if (!foundList) {
+    if (err) console.log(err);
+    else if (!foundList) {
       item.save();
       res.redirect("/");
     } else {
